@@ -1,0 +1,545 @@
+
+<style>
+  :root {
+    --c-green: #00ff88;
+    --c-green-dim: #00cc6a;
+    --c-red: #ff3b3b;
+    --c-amber: #ffb800;
+    --c-blue: #38bdf8;
+    --c-bg: #0a0e1a;
+    --c-panel: #111827;
+    --c-border: #1e3a5f;
+    --c-text: #e2e8f0;
+    --c-muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-mono, 'Courier New', monospace); }
+  .screen { display: none; flex-direction: column; min-height: 600px; }
+  .screen.active { display: flex; }
+
+  /* BOOT SCREEN */
+  #boot { background: #000; align-items: center; justify-content: center; text-align: center; padding: 2rem; }
+  .boot-logo { font-size: 11px; color: var(--c-green); line-height: 1.2; white-space: pre; margin-bottom: 1.5rem; }
+  .boot-title { font-size: 22px; font-weight: 500; color: var(--c-green); letter-spacing: 4px; margin-bottom: 0.5rem; }
+  .boot-sub { font-size: 13px; color: var(--c-muted); letter-spacing: 2px; margin-bottom: 2rem; }
+  .boot-status { font-size: 12px; color: var(--c-green-dim); margin-bottom: 1.5rem; min-height: 60px; }
+  .boot-line { opacity: 0; animation: fadeIn 0.3s forwards; }
+  @keyframes fadeIn { to { opacity: 1; } }
+  .blink { animation: blink 1s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .btn-primary { background: var(--c-green); color: #000; border: none; padding: 12px 32px; font-family: inherit; font-size: 14px; font-weight: 500; letter-spacing: 2px; cursor: pointer; border-radius: 4px; transition: all 0.2s; }
+  .btn-primary:hover { background: var(--c-green-dim); transform: scale(1.02); }
+  .btn-secondary { background: transparent; color: var(--c-green); border: 1px solid var(--c-green); padding: 10px 24px; font-family: inherit; font-size: 13px; letter-spacing: 1px; cursor: pointer; border-radius: 4px; transition: all 0.2s; }
+  .btn-secondary:hover { background: rgba(0,255,136,0.1); }
+  .btn-danger { background: transparent; color: var(--c-red); border: 1px solid var(--c-red); padding: 10px 24px; font-family: inherit; font-size: 13px; letter-spacing: 1px; cursor: pointer; border-radius: 4px; }
+
+  /* HEADER */
+  .header { background: #000; border-bottom: 1px solid var(--c-border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .header-logo { font-size: 13px; color: var(--c-green); letter-spacing: 2px; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .agent-badge { font-size: 11px; color: var(--c-muted); }
+  .agent-badge span { color: var(--c-blue); }
+  .pts { font-size: 13px; color: var(--c-amber); }
+
+  /* MISSION SELECT */
+  #missions { padding: 16px; gap: 12px; overflow-y: auto; }
+  .alert-banner { background: rgba(255,59,59,0.12); border: 1px solid rgba(255,59,59,0.4); border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
+  .alert-banner p { font-size: 12px; color: #ff8080; line-height: 1.6; }
+  .alert-banner strong { color: var(--c-red); font-size: 13px; display: block; margin-bottom: 4px; }
+  .section-title { font-size: 11px; color: var(--c-muted); letter-spacing: 3px; margin: 8px 0 6px; }
+  .mission-card { background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
+  .mission-card:hover:not(.locked) { border-color: var(--c-green); background: rgba(0,255,136,0.05); }
+  .mission-card.locked { opacity: 0.5; cursor: not-allowed; }
+  .mission-card.completed { border-color: rgba(0,255,136,0.3); }
+  .mission-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+  .mission-card.m1::before { background: var(--c-red); }
+  .mission-card.m2::before { background: var(--c-amber); }
+  .mission-card.m3::before { background: var(--c-blue); }
+  .mission-card.m4::before { background: #a855f7; }
+  .m-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .m-code { font-size: 10px; color: var(--c-muted); letter-spacing: 2px; }
+  .m-status { font-size: 10px; padding: 2px 8px; border-radius: 20px; }
+  .status-active { background: rgba(255,59,59,0.2); color: var(--c-red); }
+  .status-locked { background: rgba(100,116,139,0.2); color: var(--c-muted); }
+  .status-done { background: rgba(0,255,136,0.15); color: var(--c-green); }
+  .m-title { font-size: 15px; font-weight: 500; color: var(--c-text); margin-bottom: 4px; font-family: var(--font-sans, sans-serif); }
+  .m-desc { font-size: 12px; color: var(--c-muted); line-height: 1.5; font-family: var(--font-sans, sans-serif); }
+  .m-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .m-pts { font-size: 11px; color: var(--c-amber); }
+  .m-time { font-size: 11px; color: var(--c-muted); }
+
+  /* MISSION SCREEN */
+  #mission-view { padding: 0; overflow: hidden; }
+  .mission-content { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+  .narr-box { background: rgba(0,0,0,0.4); border-left: 3px solid var(--c-red); border-radius: 0 8px 8px 0; padding: 12px 14px; }
+  .narr-box.info { border-color: var(--c-blue); }
+  .narr-box.success { border-color: var(--c-green); }
+  .narr-label { font-size: 10px; color: var(--c-muted); letter-spacing: 2px; margin-bottom: 6px; }
+  .narr-text { font-size: 13px; color: var(--c-text); line-height: 1.7; font-family: var(--font-sans, sans-serif); }
+  .challenge-box { background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 8px; padding: 14px; }
+  .challenge-title { font-size: 13px; color: var(--c-green); margin-bottom: 10px; letter-spacing: 1px; }
+  .option-btn { width: 100%; text-align: left; background: rgba(255,255,255,0.03); border: 1px solid var(--c-border); border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; cursor: pointer; font-family: var(--font-sans, sans-serif); font-size: 13px; color: var(--c-text); transition: all 0.15s; display: block; }
+  .option-btn:hover { border-color: var(--c-blue); background: rgba(56,189,248,0.07); }
+  .option-btn.correct { border-color: var(--c-green); background: rgba(0,255,136,0.1); color: var(--c-green); }
+  .option-btn.wrong { border-color: var(--c-red); background: rgba(255,59,59,0.1); color: #ff8080; }
+  .option-btn:disabled { cursor: not-allowed; }
+  .cipher-input { width: 100%; background: rgba(0,0,0,0.4); border: 1px solid var(--c-border); border-radius: 6px; padding: 10px 14px; color: var(--c-text); font-family: var(--font-mono, monospace); font-size: 14px; margin-bottom: 10px; }
+  .cipher-input:focus { outline: none; border-color: var(--c-green); }
+  .cipher-display { font-size: 18px; color: var(--c-amber); letter-spacing: 4px; text-align: center; padding: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; margin-bottom: 12px; }
+  .hint-btn { font-size: 11px; color: var(--c-muted); background: none; border: 1px dashed var(--c-border); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-family: inherit; }
+  .hint-box { background: rgba(255,184,0,0.08); border: 1px solid rgba(255,184,0,0.3); border-radius: 6px; padding: 10px; font-size: 12px; color: var(--c-amber); margin-top: 8px; font-family: var(--font-sans, sans-serif); display: none; }
+  .progress-bar-wrap { background: rgba(255,255,255,0.05); border-radius: 20px; height: 6px; margin: 8px 0; }
+  .progress-bar { height: 6px; border-radius: 20px; background: var(--c-green); transition: width 0.5s ease; }
+  .feedback-box { display: none; border-radius: 8px; padding: 12px 14px; font-family: var(--font-sans, sans-serif); font-size: 13px; line-height: 1.6; }
+  .feedback-box.show { display: block; }
+  .feedback-box.ok { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); color: #80ffbb; }
+  .feedback-box.err { background: rgba(255,59,59,0.1); border: 1px solid rgba(255,59,59,0.3); color: #ff8080; }
+  .mission-footer { padding: 12px 16px; border-top: 1px solid var(--c-border); background: var(--c-panel); display: flex; gap: 10px; flex-shrink: 0; }
+
+  /* TERMINAL */
+  .terminal { background: #000; border: 1px solid var(--c-border); border-radius: 8px; padding: 12px 14px; font-size: 12px; color: var(--c-green-dim); line-height: 1.8; min-height: 80px; }
+  .terminal .cmd { color: var(--c-muted); }
+
+  /* LEADERBOARD */
+  #leaderboard { padding: 16px; gap: 12px; overflow-y: auto; }
+  .team-row { background: var(--c-panel); border: 1px solid var(--c-border); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .team-row.mine { border-color: rgba(0,255,136,0.4); background: rgba(0,255,136,0.05); }
+  .rank-num { font-size: 18px; color: var(--c-muted); min-width: 28px; }
+  .rank-num.gold { color: var(--c-amber); }
+  .team-info { flex: 1; }
+  .team-name { font-size: 14px; color: var(--c-text); font-family: var(--font-sans, sans-serif); }
+  .team-prog { font-size: 11px; color: var(--c-muted); margin-top: 2px; }
+  .team-pts { font-size: 16px; color: var(--c-green); font-weight: 500; }
+
+  /* NAV */
+  .bottom-nav { border-top: 1px solid var(--c-border); background: #000; display: flex; flex-shrink: 0; }
+  .nav-btn { flex: 1; background: none; border: none; padding: 10px 4px; cursor: pointer; font-family: inherit; font-size: 10px; color: var(--c-muted); letter-spacing: 1px; transition: color 0.2s; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .nav-btn.active { color: var(--c-green); }
+  .nav-icon { font-size: 16px; }
+</style>
+
+<div id="boot" class="screen active">
+  <pre class="boot-logo">
+  ██████╗███████╗███╗  ██╗████████╗██╗███╗  ██╗███████╗██╗      █████╗
+ ██╔════╝██╔════╝████╗ ██║╚══██╔══╝██║████╗ ██║██╔════╝██║     ██╔══██╗
+ ██║     █████╗  ██╔██╗██║   ██║   ██║██╔██╗██║█████╗  ██║     ███████║
+ ██║     ██╔══╝  ██║╚████║   ██║   ██║██║╚████║██╔══╝  ██║     ██╔══██║
+ ╚██████╗███████╗██║ ╚███║   ██║   ██║██║ ╚███║███████╗███████╗██║  ██║
+  ╚═════╝╚══════╝╚═╝  ╚══╝   ╚═╝   ╚═╝╚═╝  ╚══╝╚══════╝╚══════╝╚═╝  ╚═╝</pre>
+  <div class="boot-title">OPERACIÓN CENTINELA</div>
+  <div class="boot-sub">SISTEMA DE CIBERDEFENSA ESCOLAR — CLASIFICADO</div>
+  <div class="boot-status" id="boot-status"></div>
+  <button class="btn-primary" id="boot-btn" style="display:none" onclick="startApp()">▶ INICIAR MISIÓN</button>
+</div>
+
+<div id="main" class="screen" style="flex-direction: column;">
+  <div class="header">
+    <div class="header-logo">⬡ CENTINELA</div>
+    <div class="header-right">
+      <div class="agent-badge">AGENTE <span id="agent-name">ALFA</span></div>
+      <div class="pts" id="pts-display">0 PTS</div>
+    </div>
+  </div>
+
+  <!-- MISSIONS TAB -->
+  <div id="missions" class="screen active" style="flex:1; min-height:0;">
+    <div class="alert-banner">
+      <strong>⚠ ALERTA CRÍTICA — NIVEL ROJO</strong>
+      <p>El sistema del colegio está bajo ataque. Un grupo llamado <strong>PHANTOM_0</strong> ha infiltrado la red. Los servidores caen en <strong>90 minutos</strong>. Tu equipo es la última línea de defensa.</p>
+    </div>
+    <div class="section-title">// MISIONES ACTIVAS</div>
+
+    <div class="mission-card m1" onclick="openMission(1)">
+      <div class="m-header">
+        <div class="m-code">MSN-001</div>
+        <div class="m-status status-active" id="m1-status">● ACTIVA</div>
+      </div>
+      <div class="m-title">Infiltración en la Red</div>
+      <div class="m-desc">PHANTOM_0 usó una contraseña débil para entrar. Identifica cuáles son seguras y cuáles son vulnerables.</div>
+      <div class="m-footer">
+        <div class="m-pts">+200 PTS</div>
+        <div class="m-time">⏱ 12 min</div>
+      </div>
+    </div>
+
+    <div class="mission-card m2" id="card-m2" onclick="openMission(2)">
+      <div class="m-header">
+        <div class="m-code">MSN-002</div>
+        <div class="m-status" id="m2-status">🔒 BLOQUEADA</div>
+      </div>
+      <div class="m-title">Mensaje Cifrado</div>
+      <div class="m-desc">Interceptamos una comunicación de PHANTOM_0. Descifra el mensaje antes de que ejecuten la siguiente fase.</div>
+      <div class="m-footer">
+        <div class="m-pts">+300 PTS</div>
+        <div class="m-time">⏱ 15 min</div>
+      </div>
+    </div>
+
+    <div class="mission-card m3 locked" id="card-m3" onclick="openMission(3)">
+      <div class="m-header">
+        <div class="m-code">MSN-003</div>
+        <div class="m-status" id="m3-status">🔒 BLOQUEADA</div>
+      </div>
+      <div class="m-title">Trampa de Phishing</div>
+      <div class="m-desc">El atacante está enviando correos falsos a estudiantes. Identifica cuáles son reales y cuáles son phishing.</div>
+      <div class="m-footer">
+        <div class="m-pts">+350 PTS</div>
+        <div class="m-time">⏱ 15 min</div>
+      </div>
+    </div>
+
+    <div class="mission-card m4 locked" id="card-m4" onclick="openMission(4)">
+      <div class="m-header">
+        <div class="m-code">MSN-004 — FINAL</div>
+        <div class="m-status" id="m4-status">🔒 BLOQUEADA</div>
+      </div>
+      <div class="m-title">Protocolo Cierre: Expulsar a PHANTOM_0</div>
+      <div class="m-desc">Usa todo lo aprendido para activar el protocolo de cierre y expulsar al atacante del sistema.</div>
+      <div class="m-footer">
+        <div class="m-pts">+500 PTS + INSIGNIA</div>
+        <div class="m-time">⏱ 20 min</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MISSION VIEW TAB -->
+  <div id="mission-view" class="screen" style="flex:1; min-height:0; flex-direction:column;">
+    <div class="mission-content" id="mission-content"></div>
+    <div class="mission-footer">
+      <button class="btn-secondary" onclick="showTab('missions')">← VOLVER</button>
+      <button class="btn-primary" id="mission-next-btn" onclick="completeMission()" style="display:none">COMPLETAR MISIÓN ✓</button>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD TAB -->
+  <div id="leaderboard" class="screen" style="flex:1; min-height:0; overflow-y:auto;">
+    <div class="section-title">// CLASIFICACIÓN EN TIEMPO REAL</div>
+    <div class="team-row" id="lb-1"><div class="rank-num gold">01</div><div class="team-info"><div class="team-name">Equipo CYBER WOLVES</div><div class="team-prog">3 misiones ✓</div></div><div class="team-pts" id="lb1-pts">850</div></div>
+    <div class="team-row mine" id="lb-you"><div class="rank-num" id="my-rank">02</div><div class="team-info"><div class="team-name" id="my-team-lb">Tu Equipo</div><div class="team-prog" id="my-prog">0 misiones ✓</div></div><div class="team-pts" id="my-pts-lb">0</div></div>
+    <div class="team-row"><div class="rank-num">03</div><div class="team-info"><div class="team-name">Equipo DARK FIREWALL</div><div class="team-prog">2 misiones ✓</div></div><div class="team-pts">600</div></div>
+    <div class="team-row"><div class="rank-num">04</div><div class="team-info"><div class="team-name">Equipo ZERO DAY</div><div class="team-prog">2 misiones ✓</div></div><div class="team-pts">550</div></div>
+    <div class="team-row"><div class="rank-num">05</div><div class="team-info"><div class="team-name">Equipo RED TEAM</div><div class="team-prog">1 misión ✓</div></div><div class="team-pts">300</div></div>
+    <div style="height:16px"></div>
+    <div class="narr-box info">
+      <div class="narr-label">// MENSAJE DEL COMANDO</div>
+      <div class="narr-text" style="font-size:12px">"Cada punto cuenta. PHANTOM_0 está monitoreando nuestra respuesta. No le den tiempo para reaccionar. ¡Aceleren!"</div>
+    </div>
+  </div>
+
+  <!-- INTEL TAB -->
+  <div id="intel" class="screen" style="flex:1; min-height:0; overflow-y:auto; padding:16px; gap:12px;">
+    <div class="section-title">// INTELIGENCIA DE CAMPO</div>
+    <div class="narr-box info">
+      <div class="narr-label">// PERFIL DEL ATACANTE</div>
+      <div class="narr-text" style="font-size:12px">PHANTOM_0 — Grupo de hackers anónimos. Objetivo: robar datos de estudiantes y bloquear el sistema escolar. Método conocido: contraseñas débiles, phishing, y mensajes cifrados. Nivel de amenaza: CRÍTICO.</div>
+    </div>
+    <div class="section-title">// GLOSARIO AGENTE</div>
+    <div class="challenge-box">
+      <div style="font-size:12px; line-height:1.8; font-family: var(--font-sans, sans-serif); color: var(--c-text);">
+        <div style="margin-bottom:8px"><span style="color:var(--c-green)">Phishing</span> — Correo o mensaje falso que imita una fuente confiable para robarte datos.</div>
+        <div style="margin-bottom:8px"><span style="color:var(--c-green)">Contraseña fuerte</span> — Más de 12 caracteres, con mayúsculas, números y símbolos.</div>
+        <div style="margin-bottom:8px"><span style="color:var(--c-green)">Cifrado</span> — Transformar información para que solo quien tenga la clave pueda leerla.</div>
+        <div style="margin-bottom:8px"><span style="color:var(--c-green)">Firewall</span> — Barrera que bloquea accesos no autorizados a una red.</div>
+        <div><span style="color:var(--c-green)">Ingeniería social</span> — Manipulación psicológica para obtener información confidencial.</div>
+      </div>
+    </div>
+    <div class="narr-box">
+      <div class="narr-label">// SEMILLERO CENTINELA</div>
+      <div class="narr-text" style="font-size:12px">¿Quieres seguir siendo agente más allá de hoy? El Semillero de Ciberseguridad te entrena durante el año para convertirte en un defensor digital real. <span style="color:var(--c-green)">Pregunta a tu facilitador cómo unirte.</span></div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="showTab('missions')" id="nav-missions"><div class="nav-icon">⬡</div>MISIONES</button>
+    <button class="nav-btn" onclick="showTab('leaderboard')" id="nav-leaderboard"><div class="nav-icon">◈</div>RANKING</button>
+    <button class="nav-btn" onclick="showTab('intel')" id="nav-intel"><div class="nav-icon">◉</div>INTEL</button>
+  </nav>
+</div>
+
+<script>
+let points = 0;
+let completedMissions = [];
+let currentMission = 0;
+let missionAnswers = {};
+
+const missions = {
+  1: {
+    title: "MSN-001: Infiltración en la Red",
+    color: "var(--c-red)",
+    steps: [
+      {
+        type: "narr",
+        color: "",
+        label: "INTELIGENCIA RECIBIDA",
+        text: "PHANTOM_0 entró al sistema usando la contraseña de un administrativo. Era demasiado simple. El Director pide que evalúes qué contraseñas son seguras y cuáles pondrían en riesgo el colegio."
+      },
+      {
+        type: "quiz",
+        question: "¿Cuál de estas contraseñas es la MÁS SEGURA?",
+        options: [
+          { text: "juan2024", correct: false, fb: "Nombre + año = una de las más predecibles. PHANTOM_0 la adivinaría en segundos." },
+          { text: "colegio123", correct: false, fb: "Palabras del contexto del usuario son las primeras que prueban los hackers." },
+          { text: "Tr0n!c@#92$xZ", correct: true, fb: "¡Correcto! Mezcla de caracteres, símbolos, números y mayúsculas. Muy difícil de adivinar." },
+          { text: "password", correct: false, fb: "Esta es literalmente la contraseña más usada del mundo. Jamás la uses." }
+        ]
+      },
+      {
+        type: "narr",
+        color: "info",
+        label: "DATO DE CAMPO",
+        text: "El 80% de los hackeos exitosos ocurren por contraseñas débiles o reutilizadas. Un gestor de contraseñas puede generar y recordar contraseñas fuertes por ti."
+      }
+    ]
+  },
+  2: {
+    title: "MSN-002: Mensaje Cifrado",
+    color: "var(--c-amber)",
+    steps: [
+      {
+        type: "narr",
+        color: "",
+        label: "INTERCEPCIÓN",
+        text: "Nuestros sensores captaron una transmisión encriptada de PHANTOM_0. Usan un cifrado César — cada letra fue desplazada 3 posiciones en el alfabeto. Descifra el mensaje."
+      },
+      {
+        type: "cipher",
+        encoded: "DWDTXH D ODV 3 SP",
+        answer: "ATAQUE A LAS 3 PM",
+        hint: "Si la letra cifrada es D, retrocede 3 en el alfabeto: D→C→B→A. Aplica esto a cada letra."
+      },
+      {
+        type: "narr",
+        color: "info",
+        label: "CONCEPTO: CIFRADO",
+        text: "El cifrado César es uno de los más antiguos. Hoy usamos cifrados matemáticos como AES-256 que son prácticamente imposibles de romper por fuerza bruta. Todo tu WhatsApp está cifrado de esta forma."
+      }
+    ]
+  },
+  3: {
+    title: "MSN-003: Trampa de Phishing",
+    color: "var(--c-blue)",
+    steps: [
+      {
+        type: "narr",
+        color: "",
+        label: "ALERTA",
+        text: "PHANTOM_0 está enviando correos falsos a los estudiantes haciéndose pasar por la Dirección del colegio. Tu misión: identificar cuál es el correo falso."
+      },
+      {
+        type: "quiz",
+        question: "¿Cuál de estos correos es PHISHING (falso y peligroso)?",
+        options: [
+          { text: "De: rector@colegio.edu.co — 'Recuerda la reunión de padres del viernes.'", correct: false, fb: "Dominio oficial del colegio, mensaje sin urgencia ni links sospechosos. Parece legítimo." },
+          { text: "De: rectoria-colegio@gmail.com — 'URGENTE: Tu cuenta será bloqueada. Haz clic AQUÍ para verificar tus datos ahora.'", correct: true, fb: "¡Phishing detectado! Dominio incorrecto (gmail en vez del colegio), urgencia falsa, y solicitud de datos. Señales clásicas de trampa." },
+          { text: "De: biblioteca@colegio.edu.co — 'El libro solicitado ya está disponible para recogida.'", correct: false, fb: "Dominio oficial, mensaje contextual, sin links ni urgencia. Es legítimo." }
+        ]
+      },
+      {
+        type: "narr",
+        color: "info",
+        label: "REGLA DE ORO",
+        text: "Antes de hacer clic: 1) Verifica el dominio del remitente. 2) Desconfía de la urgencia extrema. 3) Nunca ingreses datos desde un link en un correo. Ve directo al sitio oficial."
+      }
+    ]
+  },
+  4: {
+    title: "MSN-004: PROTOCOLO CIERRE",
+    color: "#a855f7",
+    steps: [
+      {
+        type: "narr",
+        color: "",
+        label: "MOMENTO DECISIVO",
+        text: "Has demostrado que estás listo. El Comando Central te da acceso al Protocolo de Cierre. Para activarlo debes demostrar que entendiste las tres lecciones de esta misión."
+      },
+      {
+        type: "quiz",
+        question: "PREGUNTA FINAL: ¿Qué es lo MÁS importante para proteger tu identidad digital?",
+        options: [
+          { text: "Tener el antivirus más caro del mercado", correct: false, fb: "El antivirus ayuda, pero no es suficiente. El eslabón más débil siempre es el humano." },
+          { text: "Usar contraseñas únicas y fuertes, reconocer phishing y pensar antes de hacer clic", correct: true, fb: "¡CORRECTO! El 95% de los ataques exitosos explotan errores humanos, no fallas técnicas. TÚ eres el firewall más importante." },
+          { text: "No usar redes sociales", correct: false, fb: "Evitar tecnología no es la solución. Aprender a usarla con seguridad, sí." },
+          { text: "Solo usar internet en el colegio", correct: false, fb: "Los riesgos existen en todas las redes. La clave es el comportamiento, no la ubicación." }
+        ]
+      },
+      {
+        type: "narr",
+        color: "success",
+        label: "PROTOCOLO ACTIVADO",
+        text: "PHANTOM_0 ha sido expulsado del sistema. Los servidores del colegio están seguros. Tu equipo acaba de demostrar que el conocimiento es el arma más poderosa en ciberseguridad."
+      }
+    ]
+  }
+};
+
+// Boot sequence
+const bootLines = [
+  "[ OK ] Inicializando sistema CENTINELA...",
+  "[ OK ] Verificando credenciales de agente...",
+  "[ ALERTA ] Amenaza detectada: PHANTOM_0",
+  "[ OK ] Cargando misiones clasificadas...",
+  "[ OK ] Conectando con el Comando Central...",
+  "[ LISTO ] Sistema operativo. Agente, es hora de actuar."
+];
+
+let lineIdx = 0;
+function showNextLine() {
+  if (lineIdx < bootLines.length) {
+    const div = document.getElementById('boot-status');
+    const line = document.createElement('div');
+    line.className = 'boot-line';
+    line.style.animationDelay = '0s';
+    line.textContent = bootLines[lineIdx];
+    line.style.color = bootLines[lineIdx].includes('ALERTA') ? 'var(--c-red)' : 
+                       bootLines[lineIdx].includes('LISTO') ? 'var(--c-green)' : 'var(--c-green-dim)';
+    div.appendChild(line);
+    lineIdx++;
+    setTimeout(showNextLine, 600);
+  } else {
+    setTimeout(() => {
+      document.getElementById('boot-btn').style.display = 'inline-block';
+    }, 400);
+  }
+}
+setTimeout(showNextLine, 800);
+
+function startApp() {
+  document.getElementById('boot').classList.remove('active');
+  document.getElementById('main').classList.add('active');
+}
+
+function showTab(tab) {
+  ['missions','mission-view','leaderboard','intel'].forEach(t => {
+    document.getElementById(t).classList.remove('active');
+  });
+  ['nav-missions','nav-leaderboard','nav-intel'].forEach(n => {
+    const el = document.getElementById(n);
+    if (el) el.classList.remove('active');
+  });
+  document.getElementById(tab).classList.add('active');
+  const navMap = {'missions':'nav-missions','leaderboard':'nav-leaderboard','intel':'nav-intel'};
+  if (navMap[tab]) document.getElementById(navMap[tab]).classList.add('active');
+}
+
+function openMission(id) {
+  const mCard = document.getElementById('card-m'+id);
+  if (mCard && mCard.classList.contains('locked')) {
+    alert('⚠ Esta misión está bloqueada. Completa la misión anterior primero.');
+    return;
+  }
+  currentMission = id;
+  missionAnswers[id] = false;
+  renderMission(id);
+  showTab('mission-view');
+  document.getElementById('mission-next-btn').style.display = 'none';
+}
+
+function renderMission(id) {
+  const m = missions[id];
+  const content = document.getElementById('mission-content');
+  content.innerHTML = `<div style="font-size:13px;color:${m.color};letter-spacing:2px;margin-bottom:4px">${m.title}</div>`;
+  
+  m.steps.forEach((step, i) => {
+    if (step.type === 'narr') {
+      const cl = step.color ? 'narr-box '+step.color : 'narr-box';
+      content.innerHTML += `<div class="${cl}"><div class="narr-label">// ${step.label}</div><div class="narr-text">${step.text}</div></div>`;
+    } else if (step.type === 'quiz') {
+      let opts = step.options.map((o, oi) =>
+        `<button class="option-btn" id="opt-${i}-${oi}" onclick="checkAnswer(${id},${i},${oi})">${o.text}</button>`
+      ).join('');
+      content.innerHTML += `<div class="challenge-box"><div class="challenge-title">⚡ DESAFÍO</div><div class="narr-text" style="font-size:13px;margin-bottom:12px;font-family:var(--font-sans,sans-serif)">${step.question}</div>${opts}<div class="feedback-box" id="fb-${i}"></div></div>`;
+    } else if (step.type === 'cipher') {
+      content.innerHTML += `<div class="challenge-box">
+        <div class="challenge-title">🔓 DESCIFRAR MENSAJE</div>
+        <div class="cipher-display" id="cipher-enc">${step.encoded}</div>
+        <input class="cipher-input" id="cipher-input" placeholder="Escribe el mensaje descifrado..." />
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-primary" onclick="checkCipher(${id},${i})" style="padding:8px 20px;font-size:12px">VERIFICAR</button>
+          <button class="hint-btn" onclick="document.getElementById('hint-${i}').style.display='block'">¿Necesitas pista?</button>
+        </div>
+        <div class="hint-box" id="hint-${i}">${step.hint}</div>
+        <div class="feedback-box" id="fb-${i}" style="margin-top:10px"></div>
+      </div>`;
+    }
+  });
+}
+
+function checkAnswer(missionId, stepIdx, optIdx) {
+  const step = missions[missionId].steps[stepIdx];
+  const opt = step.options[optIdx];
+  const fb = document.getElementById(`fb-${stepIdx}`);
+  
+  step.options.forEach((o, i) => {
+    const btn = document.getElementById(`opt-${stepIdx}-${i}`);
+    btn.disabled = true;
+    if (o.correct) btn.classList.add('correct');
+  });
+  
+  const btn = document.getElementById(`opt-${stepIdx}-${optIdx}`);
+  if (!opt.correct) btn.classList.add('wrong');
+  
+  fb.className = 'feedback-box show ' + (opt.correct ? 'ok' : 'err');
+  fb.textContent = opt.correct ? '✓ ' + opt.fb : '✗ ' + opt.fb;
+  
+  if (opt.correct) {
+    missionAnswers[missionId] = true;
+    document.getElementById('mission-next-btn').style.display = 'block';
+  }
+}
+
+function checkCipher(missionId, stepIdx) {
+  const step = missions[missionId].steps[stepIdx];
+  const input = document.getElementById('cipher-input').value.trim().toUpperCase();
+  const correct = input === step.answer.toUpperCase();
+  const fb = document.getElementById(`fb-${stepIdx}`);
+  fb.className = 'feedback-box show ' + (correct ? 'ok' : 'err');
+  fb.textContent = correct ? '✓ ¡Mensaje descifrado! "' + step.answer + '" — ¡Alerta enviada al Comando!' : '✗ No es correcto. Revisa la pista e inténtalo de nuevo.';
+  if (correct) {
+    missionAnswers[missionId] = true;
+    document.getElementById('mission-next-btn').style.display = 'block';
+  }
+}
+
+function completeMission() {
+  if (!missionAnswers[currentMission]) return;
+  const pts = [0, 200, 300, 350, 500];
+  if (!completedMissions.includes(currentMission)) {
+    completedMissions.push(currentMission);
+    points += pts[currentMission];
+  }
+  updateUI();
+  showTab('missions');
+}
+
+function updateUI() {
+  document.getElementById('pts-display').textContent = points + ' PTS';
+  document.getElementById('my-pts-lb').textContent = points;
+  document.getElementById('my-prog').textContent = completedMissions.length + ' misión' + (completedMissions.length !== 1 ? 'es' : '') + ' ✓';
+  
+  const unlocks = [[1,2],[2,3],[3,4]];
+  unlocks.forEach(([done, next]) => {
+    if (completedMissions.includes(done)) {
+      const card = document.getElementById('card-m'+(next));
+      if (card) {
+        card.classList.remove('locked');
+        document.getElementById('m'+next+'-status').textContent = '● ACTIVA';
+        document.getElementById('m'+next+'-status').className = 'm-status status-active';
+      }
+    }
+  });
+  
+  completedMissions.forEach(id => {
+    document.getElementById('m'+id+'-status').textContent = '✓ COMPLETADA';
+    document.getElementById('m'+id+'-status').className = 'm-status status-done';
+  });
+
+  // Update rank
+  if (points > 850) document.getElementById('my-rank').textContent = '01';
+  else if (points > 600) document.getElementById('my-rank').textContent = '02';
+  else document.getElementById('my-rank').textContent = '03';
+  
+  if (points > 850) {
+    document.getElementById('lb1-pts').textContent = points;
+  }
+}
+</script>
